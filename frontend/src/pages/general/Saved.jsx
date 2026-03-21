@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import '../../styles/reels.css'
-import axios from 'axios'
+import { useNavigate } from 'react-router-dom'
 import ReelFeed from '../../components/ReelFeed'
+import api, { getApiErrorMessage } from '../../lib/api'
 
 const normalizeSavedVideo = (item) => ({
     _id: item.food._id,
@@ -17,18 +18,81 @@ const normalizeSavedVideo = (item) => ({
 
 const Saved = () => {
     const [ videos, setVideos ] = useState([])
+    const [ isLoading, setIsLoading ] = useState(true)
+    const [ errorMessage, setErrorMessage ] = useState('')
+    const [ statusMessage, setStatusMessage ] = useState('')
+    const navigate = useNavigate()
 
     useEffect(() => {
-        axios.get(`${import.meta.env.VITE_API_URL}/api/food/save`, { withCredentials: true })
-            .then(response => {
+        let isMounted = true
+
+        async function loadSavedVideos() {
+            try {
+                setIsLoading(true)
+                setErrorMessage('')
+
+                const response = await api.get('/api/food/save')
+
+                if (!isMounted) return
+
                 const savedFoods = (response.data.savedFoods ?? []).map(normalizeSavedVideo)
                 setVideos(savedFoods)
-            })
-    }, [])
+            } catch (error) {
+                if (!isMounted) return
+
+                if (error?.response?.status === 401 || error?.response?.status === 403) {
+                    navigate('/user/login')
+                    return
+                }
+
+                setVideos([])
+                setErrorMessage(getApiErrorMessage(error, 'Unable to load saved videos right now.'))
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false)
+                }
+            }
+        }
+
+        loadSavedVideos()
+
+        return () => {
+            isMounted = false
+        }
+    }, [navigate])
+
+    const toggleLike = async (item) => {
+        try {
+            const response = await api.post('/api/food/like', { foodId: item._id })
+            const isLiked = Boolean(response.data.like)
+
+            setStatusMessage('')
+            setVideos((prev) => prev.map((v) => (
+                v._id === item._id
+                    ? {
+                        ...v,
+                        isLiked,
+                        likeCount: isLiked
+                            ? Number(v.likeCount ?? 0) + 1
+                            : Math.max(0, Number(v.likeCount ?? 0) - 1),
+                    }
+                    : v
+            )))
+        } catch (error) {
+            if (error?.response?.status === 401 || error?.response?.status === 403) {
+                navigate('/user/login')
+                return
+            }
+
+            setStatusMessage(getApiErrorMessage(error, 'Unable to update the like right now.'))
+        }
+    }
 
     const removeSaved = async (item) => {
         try {
-            const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/food/save`, { foodId: item._id }, { withCredentials: true })
+            const response = await api.post('/api/food/save', { foodId: item._id })
+
+            setStatusMessage('')
 
             if (response.data.save) {
                 setVideos((prev) => prev.map((v) => (
@@ -40,16 +104,23 @@ const Saved = () => {
             }
 
             setVideos((prev) => prev.filter((v) => v._id !== item._id))
-        } catch {
-            // noop
+        } catch (error) {
+            if (error?.response?.status === 401 || error?.response?.status === 403) {
+                navigate('/user/login')
+                return
+            }
+
+            setStatusMessage(getApiErrorMessage(error, 'Unable to update the saved video right now.'))
         }
     }
 
     return (
         <ReelFeed
             items={videos}
+            onLike={toggleLike}
             onSave={removeSaved}
-            emptyMessage="No saved videos yet."
+            emptyMessage={isLoading ? 'Loading saved videos...' : (errorMessage || 'No saved videos yet.')}
+            statusMessage={statusMessage}
         />
     )
 }

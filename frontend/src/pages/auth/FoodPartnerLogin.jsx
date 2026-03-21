@@ -1,12 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import '../../styles/auth-shared.css';
-import { Link } from 'react-router-dom';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import api, { getApiErrorMessage } from '../../lib/api';
 
 const FoodPartnerLogin = () => {
-
   const navigate = useNavigate();
+  const [ errorMessage, setErrorMessage ] = useState('');
+  const [ isSubmitting, setIsSubmitting ] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -14,15 +14,21 @@ const FoodPartnerLogin = () => {
     const email = e.target.email.value;
     const password = e.target.password.value;
 
-    const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/food-partner/login`, {
-      email,
-      password
-    }, { withCredentials: true });
+    try {
+      setIsSubmitting(true);
+      setErrorMessage('');
 
-    console.log(response.data);
+      await api.post('/api/auth/food-partner/login', {
+        email,
+        password
+      });
 
-    navigate("/create-food"); // Redirect to create food page after login
-
+      navigate("/create-food");
+    } catch (error) {
+      setErrorMessage(getApiErrorMessage(error, 'Unable to sign in right now.'));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -33,6 +39,7 @@ const FoodPartnerLogin = () => {
           <p className="auth-subtitle">Access your dashboard and manage orders.</p>
         </header>
         <form className="auth-form" onSubmit={handleSubmit} noValidate>
+          {errorMessage && <p className="form-message form-message--error" role="alert">{errorMessage}</p>}
           <div className="field-group">
             <label htmlFor="email">Email</label>
             <input id="email" name="email" type="email" placeholder="business@example.com" autoComplete="email" />
@@ -41,7 +48,9 @@ const FoodPartnerLogin = () => {
             <label htmlFor="password">Password</label>
             <input id="password" name="password" type="password" placeholder="Password" autoComplete="current-password" />
           </div>
-          <button className="auth-submit" type="submit">Sign In</button>
+          <button className="auth-submit" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Signing In...' : 'Sign In'}
+          </button>
         </form>
         <div className="auth-alt-action">
           New partner? <Link to="/food-partner/register">Create an account</Link>

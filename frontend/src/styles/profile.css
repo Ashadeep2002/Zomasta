@@ -95,6 +95,11 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.profile-empty {
+  color: var(--color-text-secondary);
+  font-size: 1rem;
+}
+
 .profile-grid-item { 
     border: none;
     aspect-ratio: 3 / 4; }

@@ -133,6 +133,11 @@
 }
 
 .reel-action:active { transform: translateY(1px); }
+.reel-action:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+}
 .reel-action.is-active {
   border-color: rgba(255,255,255,.45);
 }
@@ -163,4 +168,21 @@
 
 .empty-state{
   position: absolute; inset: 0; display: grid; place-items: center; color: #fff;
+}
+
+.reel-status {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  text-align: center;
+  font-size: .92rem;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(8px);
 }

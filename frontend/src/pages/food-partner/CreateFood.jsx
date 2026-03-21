@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import axios from 'axios';
 import '../../styles/create-food.css';
 import { useNavigate } from 'react-router-dom';
+import api, { getApiErrorMessage } from '../../lib/api';
 
 const CreateFood = () => {
     const [ name, setName ] = useState('');
@@ -9,6 +9,8 @@ const CreateFood = () => {
     const [ videoFile, setVideoFile ] = useState(null);
     const [ videoURL, setVideoURL ] = useState('');
     const [ fileError, setFileError ] = useState('');
+    const [ submitError, setSubmitError ] = useState('');
+    const [ isSubmitting, setIsSubmitting ] = useState(false);
     const fileInputRef = useRef(null);
 
     const navigate = useNavigate();
@@ -23,11 +25,25 @@ const CreateFood = () => {
         return () => URL.revokeObjectURL(url);
     }, [ videoFile ]);
 
+    const clearSelectedVideo = () => {
+        setVideoFile(null);
+        setFileError('');
+
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
     const onFileChange = (e) => {
         const file = e.target.files && e.target.files[ 0 ];
-        if (!file) { setVideoFile(null); setFileError(''); return; }
-        if (!file.type.startsWith('video/')) { setFileError('Please select a valid video file.'); return; }
+        if (!file) { clearSelectedVideo(); return; }
+        if (!file.type.startsWith('video/')) {
+            setFileError('Please select a valid video file.');
+            e.target.value = '';
+            return;
+        }
         setFileError('');
+        setSubmitError('');
         setVideoFile(file);
     };
 
@@ -38,6 +54,7 @@ const CreateFood = () => {
         if (!file) { return; }
         if (!file.type.startsWith('video/')) { setFileError('Please drop a valid video file.'); return; }
         setFileError('');
+        setSubmitError('');
         setVideoFile(file);
     };
 
@@ -50,23 +67,46 @@ const CreateFood = () => {
     const onSubmit = async (e) => {
         e.preventDefault();
 
+        if (!name.trim()) {
+            setSubmitError('Food name is required.');
+            return;
+        }
+
+        if (!videoFile) {
+            setSubmitError('Please select a food video before saving.');
+            return;
+        }
+
         const formData = new FormData();
 
-        formData.append('name', name);
-        formData.append('description', description);
+        formData.append('name', name.trim());
+        formData.append('description', description.trim());
         formData.append("video", videoFile);
 
-        const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/food`, formData, {
-            withCredentials: true,
-        })
+        try {
+            setIsSubmitting(true);
+            setSubmitError('');
 
-        console.log(response.data);
-        navigate("/"); // Redirect to home or another page after successful creation
-        // Optionally reset
-        // setName(''); setDescription(''); setVideoFile(null);
+            await api.post('/api/food', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+
+            navigate("/");
+        } catch (error) {
+            if (error?.response?.status === 401 || error?.response?.status === 403) {
+                setSubmitError('Please sign in as a food partner to create food videos.');
+                return;
+            }
+
+            setSubmitError(getApiErrorMessage(error, 'Unable to save this food right now.'));
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
-    const isDisabled = useMemo(() => !name.trim() || !videoFile, [ name, videoFile ]);
+    const isDisabled = useMemo(() => !name.trim() || !videoFile || isSubmitting, [ name, videoFile, isSubmitting ]);
 
     return (
         <div className="create-food-page">
@@ -77,6 +117,8 @@ const CreateFood = () => {
                 </header>
 
                 <form className="create-food-form" onSubmit={onSubmit}>
+                    {submitError && <p className="error-text" role="alert">{submitError}</p>}
+
                     <div className="field-group">
                         <label htmlFor="foodVideo">Food Video</label>
                         <input
@@ -120,7 +162,7 @@ const CreateFood = () => {
                                 <span className="file-chip-size">{(videoFile.size / 1024 / 1024).toFixed(1)} MB</span>
                                 <div className="file-chip-actions">
                                     <button type="button" className="btn-ghost" onClick={openFileDialog}>Change</button>
-                                    <button type="button" className="btn-ghost danger" onClick={() => { setVideoFile(null); setFileError(''); }}>Remove</button>
+                                    <button type="button" className="btn-ghost danger" onClick={clearSelectedVideo}>Remove</button>
                                 </div>
                             </div>
                         )}
@@ -157,7 +199,7 @@ const CreateFood = () => {
 
                     <div className="form-actions">
                         <button className="btn-primary" type="submit" disabled={isDisabled}>
-                            Save Food
+                            {isSubmitting ? 'Saving...' : 'Save Food'}
                         </button>
                     </div>
                 </form>

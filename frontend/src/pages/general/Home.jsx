@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
-import axios from 'axios';
 import '../../styles/reels.css'
 import ReelFeed from '../../components/ReelFeed'
+import api, { getApiErrorMessage } from '../../lib/api'
 
 const normalizeVideo = (item) => ({
     ...item,
@@ -14,25 +14,48 @@ const normalizeVideo = (item) => ({
 
 const Home = () => {
     const [ videos, setVideos ] = useState([])
-    // Autoplay behavior is handled inside ReelFeed
+    const [ isLoading, setIsLoading ] = useState(true)
+    const [ errorMessage, setErrorMessage ] = useState('')
+    const [ statusMessage, setStatusMessage ] = useState('')
 
     useEffect(() => {
-        axios.get(`${import.meta.env.VITE_API_URL}/api/food`, { withCredentials: true })
-            .then(response => {
+        let isMounted = true
 
-                console.log(response.data);
+        async function loadVideos() {
+            try {
+                setIsLoading(true)
+                setErrorMessage('')
+
+                const response = await api.get('/api/food')
+
+                if (!isMounted) return
 
                 setVideos((response.data.foodItems ?? []).map(normalizeVideo))
-            })
-            .catch(() => { /* noop: optionally handle error */ })
-    }, [])
+            } catch (error) {
+                if (!isMounted) return
 
-    // Using local refs within ReelFeed; keeping map here for dependency parity if needed
+                setVideos([])
+                setErrorMessage(getApiErrorMessage(error, 'Unable to load videos right now.'))
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false)
+                }
+            }
+        }
+
+        loadVideos()
+
+        return () => {
+            isMounted = false
+        }
+    }, [])
 
     async function likeVideo(item) {
         try {
-            const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/food/like`, { foodId: item._id }, {withCredentials: true})
+            const response = await api.post('/api/food/like', { foodId: item._id })
             const isLiked = Boolean(response.data.like)
+
+            setStatusMessage('')
 
             setVideos((prev) => prev.map((v) => {
                 if (v._id !== item._id) return v
@@ -44,15 +67,21 @@ const Home = () => {
                     likeCount: isLiked ? currentLikes + 1 : Math.max(0, currentLikes - 1),
                 }
             }))
-        } catch {
-            // noop
+        } catch (error) {
+            setStatusMessage(
+                error?.response?.status === 401 || error?.response?.status === 403
+                    ? 'Please sign in to like videos.'
+                    : getApiErrorMessage(error, 'Unable to update the like right now.')
+            )
         }
     }
 
     async function saveVideo(item) {
         try {
-            const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/food/save`, { foodId: item._id }, { withCredentials: true })
+            const response = await api.post('/api/food/save', { foodId: item._id })
             const isSaved = Boolean(response.data.save)
+
+            setStatusMessage('')
 
             setVideos((prev) => prev.map((v) => {
                 if (v._id !== item._id) return v
@@ -64,8 +93,12 @@ const Home = () => {
                     savesCount: isSaved ? currentSaves + 1 : Math.max(0, currentSaves - 1),
                 }
             }))
-        } catch {
-            // noop
+        } catch (error) {
+            setStatusMessage(
+                error?.response?.status === 401 || error?.response?.status === 403
+                    ? 'Please sign in to save videos.'
+                    : getApiErrorMessage(error, 'Unable to update the save right now.')
+            )
         }
     }
 
@@ -74,7 +107,8 @@ const Home = () => {
             items={videos}
             onLike={likeVideo}
             onSave={saveVideo}
-            emptyMessage="No videos available."
+            emptyMessage={isLoading ? 'Loading videos...' : (errorMessage || 'No videos available.')}
+            statusMessage={statusMessage}
         />
     )
 }

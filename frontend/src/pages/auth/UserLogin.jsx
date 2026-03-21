@@ -1,12 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import '../../styles/auth-shared.css';
-import { Link } from 'react-router-dom';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import api, { getApiErrorMessage } from '../../lib/api';
 
 const UserLogin = () => {
-
   const navigate = useNavigate();
+  const [ errorMessage, setErrorMessage ] = useState('');
+  const [ isSubmitting, setIsSubmitting ] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -14,15 +14,21 @@ const UserLogin = () => {
     const email = e.target.email.value;
     const password = e.target.password.value;
 
-    const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/user/login`, {
-      email,
-      password
-    }, { withCredentials: true });
+    try {
+      setIsSubmitting(true);
+      setErrorMessage('');
 
-    console.log(response.data);
+      await api.post('/api/auth/user/login', {
+        email,
+        password
+      });
 
-    navigate("/"); // Redirect to home after login
-
+      navigate("/");
+    } catch (error) {
+      setErrorMessage(getApiErrorMessage(error, 'Unable to sign in right now.'));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -33,15 +39,18 @@ const UserLogin = () => {
           <p className="auth-subtitle">Sign in to continue your food journey.</p>
         </header>
         <form className="auth-form" onSubmit={handleSubmit} noValidate>
+          {errorMessage && <p className="form-message form-message--error" role="alert">{errorMessage}</p>}
           <div className="field-group">
             <label htmlFor="email">Email</label>
             <input id="email" name="email" type="email" placeholder="you@example.com" autoComplete="email" />
           </div>
           <div className="field-group">
             <label htmlFor="password">Password</label>
-            <input id="password" name="password" type="password" placeholder="••••••••" autoComplete="current-password" />
+            <input id="password" name="password" type="password" placeholder="Password" autoComplete="current-password" />
           </div>
-          <button className="auth-submit" type="submit">Sign In</button>
+          <button className="auth-submit" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Signing In...' : 'Sign In'}
+          </button>
         </form>
         <div className="auth-alt-action">
           New here? <Link to="/user/register">Create account</Link>

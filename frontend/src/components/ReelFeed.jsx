@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom'
 // - onLike: (item) => void | Promise<void>
 // - onSave: (item) => void | Promise<void>
 // - emptyMessage: string
-const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' }) => {
+const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.', statusMessage = '' }) => {
   const videoRefs = useRef(new Map())
 
   useEffect(() => {
@@ -44,70 +44,94 @@ const ReelFeed = ({ items = [], onLike, onSave, emptyMessage = 'No videos yet.' 
           </div>
         )}
 
-        {items.map((item) => (
-          <section key={item._id} className="reel" role="listitem">
-            <video
-              ref={setVideoRef(item._id)}
-              className="reel-video"
-              src={item.video}
-              muted
-              playsInline
-              loop
-              preload="metadata"
-            />
+        {statusMessage && (
+          <div className="reel-status" role="status" aria-live="polite">
+            {statusMessage}
+          </div>
+        )}
 
-            <div className="reel-overlay">
-              <div className="reel-overlay-gradient" aria-hidden="true" />
-              <div className="reel-actions">
-                <div className="reel-action-group">
-                  <button
-                    type="button"
-                    onClick={onLike ? () => onLike(item) : undefined}
-                    className={`reel-action ${item.isLiked ? 'is-active is-liked' : ''}`}
-                    aria-label={item.isLiked ? 'Unlike' : 'Like'}
-                    aria-pressed={Boolean(item.isLiked)}
-                  >
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 22l7.8-8.6 1-1a5.5 5.5 0 0 0 0-7.8z" />
-                    </svg>
-                  </button>
-                  <div className="reel-action__count">{item.likeCount ?? item.likesCount ?? item.likes ?? 0}</div>
+        {items.map((item) => {
+          const foodPartnerId = typeof item.foodPartner === 'string'
+            ? item.foodPartner
+            : item.foodPartner?._id
+          const canLike = typeof onLike === 'function'
+          const canSave = typeof onSave === 'function'
+
+          return (
+            <section key={item._id} className="reel" role="listitem">
+              <video
+                ref={setVideoRef(item._id)}
+                className="reel-video"
+                src={item.video}
+                muted
+                playsInline
+                loop
+                preload="metadata"
+              />
+
+              <div className="reel-overlay">
+                <div className="reel-overlay-gradient" aria-hidden="true" />
+                <div className="reel-actions">
+                  <div className="reel-action-group">
+                    <button
+                      type="button"
+                      onClick={canLike ? () => onLike(item) : undefined}
+                      className={`reel-action ${item.isLiked ? 'is-active is-liked' : ''}`}
+                      aria-label={canLike ? (item.isLiked ? 'Unlike' : 'Like') : 'Like unavailable on this page'}
+                      aria-pressed={Boolean(item.isLiked)}
+                      disabled={!canLike}
+                      title={!canLike ? 'Like action is not available on this page.' : undefined}
+                    >
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 22l7.8-8.6 1-1a5.5 5.5 0 0 0 0-7.8z" />
+                      </svg>
+                    </button>
+                    <div className="reel-action__count">{item.likeCount ?? item.likesCount ?? item.likes ?? 0}</div>
+                  </div>
+
+                  <div className="reel-action-group">
+                    <button
+                      type="button"
+                      className={`reel-action ${item.isSaved ? 'is-active is-saved' : ''}`}
+                      onClick={canSave ? () => onSave(item) : undefined}
+                      aria-label={canSave ? (item.isSaved ? 'Unsave' : 'Save') : 'Save unavailable on this page'}
+                      aria-pressed={Boolean(item.isSaved)}
+                      disabled={!canSave}
+                      title={!canSave ? 'Save action is not available on this page.' : undefined}
+                    >
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
+                      </svg>
+                    </button>
+                    <div className="reel-action__count">{item.savesCount ?? item.bookmarks ?? item.saves ?? 0}</div>
+                  </div>
+
+                  <div className="reel-action-group">
+                    <button
+                      type="button"
+                      className="reel-action"
+                      aria-label="Comments coming soon"
+                      disabled
+                      title="Comments are not implemented yet."
+                    >
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+                      </svg>
+                    </button>
+                    <div className="reel-action__count">{item.commentsCount ?? (Array.isArray(item.comments) ? item.comments.length : 0)}</div>
+                  </div>
                 </div>
 
-                <div className="reel-action-group">
-                  <button
-                    type="button"
-                    className={`reel-action ${item.isSaved ? 'is-active is-saved' : ''}`}
-                    onClick={onSave ? () => onSave(item) : undefined}
-                    aria-label={item.isSaved ? 'Unsave' : 'Save'}
-                    aria-pressed={Boolean(item.isSaved)}
-                  >
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
-                    </svg>
-                  </button>
-                  <div className="reel-action__count">{item.savesCount ?? item.bookmarks ?? item.saves ?? 0}</div>
-                </div>
-
-                <div className="reel-action-group">
-                  <button type="button" className="reel-action" aria-label="Comments">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
-                    </svg>
-                  </button>
-                  <div className="reel-action__count">{item.commentsCount ?? (Array.isArray(item.comments) ? item.comments.length : 0)}</div>
+                <div className="reel-content">
+                  <p className="reel-description" title={item.description}>{item.description}</p>
+                  {foodPartnerId && (
+                    <Link className="reel-btn" to={`/food-partner/${foodPartnerId}`} aria-label="Visit store">Visit store</Link>
+                  )}
                 </div>
               </div>
-
-              <div className="reel-content">
-                <p className="reel-description" title={item.description}>{item.description}</p>
-                {item.foodPartner && (
-                  <Link className="reel-btn" to={"/food-partner/" + item.foodPartner} aria-label="Visit store">Visit store</Link>
-                )}
-              </div>
-            </div>
-          </section>
-        ))}
+            </section>
+          )
+        })}
       </div>
     </div>
   )

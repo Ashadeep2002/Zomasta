@@ -1,20 +1,62 @@
-import React, { useState, useEffect, use } from 'react'
+import React, { useState, useEffect } from 'react'
 import '../../styles/profile.css'
 import { useParams } from 'react-router-dom'
-import axios from 'axios'
+import api, { getApiErrorMessage } from '../../lib/api'
 
 const Profile = () => {
     const { id } = useParams()
     const [ profile, setProfile ] = useState(null)
     const [ videos, setVideos ] = useState([])
+    const [ isLoading, setIsLoading ] = useState(true)
+    const [ errorMessage, setErrorMessage ] = useState('')
 
     useEffect(() => {
-        axios.get(`${import.meta.env.VITE_API_URL}/api/food-partner/${id}`, { withCredentials: true })
-            .then(response => {
+        let isMounted = true
+
+        async function loadProfile() {
+            try {
+                setIsLoading(true)
+                setErrorMessage('')
+
+                const response = await api.get(`/api/food-partner/${id}`)
+
+                if (!isMounted) return
+
                 setProfile(response.data.foodPartner)
-                setVideos(response.data.foodPartner.foodItems)
-            })
+                setVideos(response.data.foodPartner.foodItems ?? [])
+            } catch (error) {
+                if (!isMounted) return
+
+                setErrorMessage(getApiErrorMessage(error, 'Unable to load this food partner profile right now.'))
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false)
+                }
+            }
+        }
+
+        loadProfile()
+
+        return () => {
+            isMounted = false
+        }
     }, [ id ])
+
+    if (isLoading) {
+        return (
+            <main className="profile-page">
+                <p className="profile-empty">Loading profile...</p>
+            </main>
+        )
+    }
+
+    if (errorMessage) {
+        return (
+            <main className="profile-page">
+                <p className="profile-empty">{errorMessage}</p>
+            </main>
+        )
+    }
 
 
     return (
@@ -37,11 +79,11 @@ const Profile = () => {
                 <div className="profile-stats" role="list" aria-label="Stats">
                     <div className="profile-stat" role="listitem">
                         <span className="profile-stat-label">total meals</span>
-                        <span className="profile-stat-value">{profile?.totalMeals}</span>
+                        <span className="profile-stat-value">{profile?.totalMeals ?? videos.length}</span>
                     </div>
                     <div className="profile-stat" role="listitem">
-                        <span className="profile-stat-label">customer served</span>
-                        <span className="profile-stat-value">{profile?.customersServed}</span>
+                        <span className="profile-stat-label">total saves</span>
+                        <span className="profile-stat-value">{profile?.totalSaves ?? 0}</span>
                     </div>
                 </div>
             </section>
@@ -49,17 +91,21 @@ const Profile = () => {
             <hr className="profile-sep" />
 
             <section className="profile-grid" aria-label="Videos">
+                {videos.length === 0 && (
+                    <p className="profile-empty">No food videos have been uploaded yet.</p>
+                )}
+
                 {videos.map((v) => (
-                    <div key={v.id} className="profile-grid-item">
-                        {/* Placeholder tile; replace with <video> or <img> as needed */}
-
-
+                    <div key={v._id} className="profile-grid-item">
                         <video
                             className="profile-grid-video"
                             style={{ objectFit: 'cover', width: '100%', height: '100%' }}
-                            src={v.video} muted ></video>
-
-
+                            src={v.video}
+                            controls
+                            muted
+                            playsInline
+                            preload="metadata"
+                        />
                     </div>
                 ))}
             </section>
