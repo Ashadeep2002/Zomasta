@@ -19,7 +19,7 @@ const Saved = () => {
     const [ videos, setVideos ] = useState([])
 
     useEffect(() => {
-        axios.get("http://localhost:3000/api/food/save", { withCredentials: true })
+        axios.get(`${import.meta.env.VITE_API_URL}/api/food/save`, { withCredentials: true })
             .then(response => {
                 const savedFoods = (response.data.savedFoods ?? []).map(normalizeSavedVideo)
                 setVideos(savedFoods)
@@ -28,7 +28,7 @@ const Saved = () => {
 
     const removeSaved = async (item) => {
         try {
-            const response = await axios.post("http://localhost:3000/api/food/save", { foodId: item._id }, { withCredentials: true })
+            const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/food/save`, { foodId: item._id }, { withCredentials: true })
 
             if (response.data.save) {
                 setVideos((prev) => prev.map((v) => (
