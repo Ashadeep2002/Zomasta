@@ -7,9 +7,23 @@ const foodRoutes = require('./routes/food.routes');
 const foodPartnerRoutes = require('./routes/food-partner.routes');
 const cors = require('cors');
 
+function normalizeOrigin(origin) {
+    const trimmedOrigin = (origin || '').trim();
+
+    if (!trimmedOrigin) {
+        return null;
+    }
+
+    try {
+        return new URL(trimmedOrigin).origin;
+    } catch (error) {
+        return trimmedOrigin.replace(/\/$/, '');
+    }
+}
+
 const configuredOrigins = (process.env.CLIENT_URL || '')
     .split(',')
-    .map((origin) => origin.trim())
+    .map(normalizeOrigin)
     .filter(Boolean);
 
 const allowedOrigins = new Set([
